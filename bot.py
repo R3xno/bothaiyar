@@ -2,24 +2,25 @@ import random
 import math
 import logging
 import certifi
+
 from pymongo import MongoClient
 from telegram import (
     Update,
     InlineKeyboardButton,
-    InlineKeyboardMarkup
+    InlineKeyboardMarkup,
 )
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     CallbackQueryHandler,
-    ContextTypes
+    ContextTypes,
 )
 
 # ================= CONFIG =================
 BOT_TOKEN = "7422247259:AAEDq4_ZJqJT-EtHFfRkJumKy-tyD38UdFs"
 MONGO_URI = "mongodb+srv://<sixty9>:<sixty9>@cluster0.wcpenfo.mongodb.net/?appName=Cluster0"
 
-TOTAL_POKEMON = 1025  # Up to Paldea
+TOTAL_POKEMON = 1025
 SHINY_CHANCE = 0.03
 
 NATURES = [
@@ -87,7 +88,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_photo(
         photo=sprite(pid, shiny),
-        caption=f"🎉 You got **{poke['name']}{' ✨' if shiny else ''}**!",
+        caption=f"🎉 You got *{poke['name']}{' ✨' if shiny else ''}*!",
         parse_mode="Markdown"
     )
 
@@ -113,6 +114,7 @@ async def catch(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     data = guesses.find_one({"_id": update.effective_chat.id})
     if not data:
+        await update.message.reply_text("❌ No Pokémon to catch.")
         return
 
     pid = data["pid"]
@@ -130,7 +132,7 @@ async def catch(update: Update, context: ContextTypes.DEFAULT_TYPE):
     guesses.delete_one({"_id": update.effective_chat.id})
 
     await update.message.reply_text(
-        f"✅ Caught **{poke['name']}{' ✨' if shiny else ''}**!",
+        f"✅ Caught *{poke['name']}{' ✨' if shiny else ''}*!",
         parse_mode="Markdown"
     )
 
@@ -145,7 +147,7 @@ async def mypokes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     start = (page - 1) * per_page
     end = start + per_page
 
-    text = f"📦 **Your Pokémon ({total})**\n\n"
+    text = f"📦 *Your Pokémon ({total})*\n\n"
     for i, p in enumerate(user["pokemons"][start:end], start + 1):
         text += f"{i}. {p['name']}{' ✨' if p['shiny'] else ''}\n"
 
@@ -164,8 +166,11 @@ async def mypokes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def mypokes_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
-    page = q.data.split(":")[1]
-    context.args = [page]
+
+    page = int(q.data.split(":")[1])
+    context.args = [str(page)]
+
+    await q.message.delete()
     await mypokes(q, context)
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -176,7 +181,6 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = get_user(update.effective_user.id)
 
     pokes = [p for p in user["pokemons"] if p["name"].lower() == name]
-
     if not pokes:
         await update.message.reply_text("❌ You don't own this Pokémon.")
         return
@@ -193,32 +197,38 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_photo(
         photo=sprite(p["id"], p["shiny"]),
-        caption=f"**{p['name']}{' ✨' if p['shiny'] else ''}**\nNature: {p['nature']}\n\nIVs:\n{ivs}",
+        caption=f"*{p['name']}{' ✨' if p['shiny'] else ''}*\nNature: {p['nature']}\n\nIVs:\n{ivs}",
         parse_mode="Markdown"
     )
 
 async def stat_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
+
     idx = int(q.data.split(":")[1])
     p = context.user_data["stats_list"][idx]
 
     ivs = "\n".join(f"{k}: {v}" for k, v in p["ivs"].items())
+
     await q.message.reply_photo(
         photo=sprite(p["id"], p["shiny"]),
-        caption=f"**{p['name']}{' ✨' if p['shiny'] else ''}**\nNature: {p['nature']}\n\nIVs:\n{ivs}",
+        caption=f"*{p['name']}{' ✨' if p['shiny'] else ''}*\nNature: {p['nature']}\n\nIVs:\n{ivs}",
         parse_mode="Markdown"
     )
 
 async def myinv(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = get_user(update.effective_user.id)
-    await update.message.reply_text(f"💰 PokéCoins: **{user['coins']}**", parse_mode="Markdown")
+    await update.message.reply_text(f"💰 PokéCoins: *{user['coins']}*", parse_mode="Markdown")
 
 async def send(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message.reply_to_message or not context.args:
         return
 
-    amount = int(context.args[0])
+    try:
+        amount = int(context.args[0])
+    except:
+        return
+
     sender = get_user(update.effective_user.id)
     receiver = get_user(update.message.reply_to_message.from_user.id)
 
@@ -231,11 +241,11 @@ async def send(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("✅ Coins sent!")
 
-# ================= ERROR HANDLER =================
+# ================= ERROR =================
 async def error_handler(update, context):
-    logging.error(f"Update error: {context.error}")
+    logging.error(context.error)
 
-# ================= START BOT =================
+# ================= START =================
 app = ApplicationBuilder().token(BOT_TOKEN).build()
 
 app.add_handler(CommandHandler("start", start))
