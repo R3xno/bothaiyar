@@ -6,7 +6,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # ================= CONFIG =================
-BOT_TOKEN = "YOUR_BOT_TOKEN_HERE" 
+BOT_TOKEN = "7422247259:AAGIZlgEPugM910XYHlhgSW5l3UAq4QJi-Y" 
 TOTAL_POKEMON = 151 
 SHINY_CHANCE = 0.05  # Increased to 5% so you can actually see them testing!
 
